@@ -6,8 +6,9 @@ import io
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import matplotlib.font_manager as fm
+import numpy as np
 
-mnu = st.sidebar.selectbox('선택', options=['타이타닉 분석','타이타닉 시각화1',' 타이타닉 시각화2', '기타 시각화'])
+mnu = st.sidebar.selectbox('선택', options=['타이타닉 분석','타이타닉 시각화1',' 타이타닉 시각화2', '기타 시각화', '고백'])
 
 
 titanic = sns.load_dataset('titanic')
@@ -204,4 +205,38 @@ elif mnu == '기타 시각화':
     st.pyplot()
 
     sns.regplot(data=tips, x='total_bill', y='tip', ci=99)
+    st.pyplot()
+
+elif mnu == '고백':
+
+    def fn(x, y, z):
+        return ((x ** 2) + 9 * (y ** 2) / 4 + (z ** 2) - 1) ** 3 - (x ** 2) * (z ** 3) - 9 * (y ** 2) * (z ** 3) / 80
+
+    bbox = (-1.2, 1.2)
+    xmin, xmax, ymin, ymax, zmin, zmax = bbox * 3
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    A = np.linspace(xmin, xmax, 100)
+    B = np.linspace(xmin, xmax, 50)
+    A1, A2 = np.meshgrid(A, A)
+
+    for z in B:
+        X, Y = A1, A2
+        Z = fn(X, Y, z)
+        cset = ax.contour(X, Y, Z + z, [z], zdir='z', colors='r')
+
+    for y in B:
+        X, Z = A1, A2
+        Y = fn(X, y, Z)
+        cset = ax.contour(X, Y + y, Z, [y], zdir='y', colors='b')
+
+    for x in B:
+        Y, Z = A1, A2
+        X = fn(x, Y, Z)
+        cset = ax.contour(X + x, Y, Z, [x], zdir='x', colors='g')
+
+    ax.set_zlim3d(zmin, zmax)
+    ax.set_xlim3d(xmin, xmax)
+    ax.set_ylim3d(ymin, ymax)
+
     st.pyplot()
