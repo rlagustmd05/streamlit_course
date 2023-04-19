@@ -8,7 +8,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 import matplotlib.font_manager as fm
 import numpy as np
 
-mnu = st.sidebar.selectbox('선택', options=['타이타닉 분석','타이타닉 시각화1',' 타이타닉 시각화2', '기타 시각화', '고백'])
+mnu = st.sidebar.selectbox('선택', options=['타이타닉 분석','타이타닉 시각화1','타이타닉 시각화2', '기타 시각화', '고백'])
 
 
 titanic = sns.load_dataset('titanic')
@@ -85,7 +85,7 @@ elif mnu == '타이타닉 시각화1':
     g.add_legend()
     st.pyplot()
 
-###########################################################################
+#############################################################################
 elif mnu == '타이타닉 시각화2':
     st.text('히스토그램')
     fig = plt.figure(figsize=(12, 6))
