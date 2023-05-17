@@ -204,8 +204,7 @@ elif mnu == '시각화':
     st.pyplot()
 
     st.markdown('#### 분석 정리 및 모델링 전략')
-    st.markdown('**1. 타깃값 변환:** 분포도 확인 결과 타깃값인 count가 0근처로 치우쳐 있으므로 로그변환하여 정규분포에 가깝게 만들어야한다.'
-                '마지막에 다시 지수변환해 count로 복원해야 한다.')
+    st.markdown('**1. 타깃값 변환:** 분포도 확인 결과 타깃값인 count가 0근처로 치우쳐 있으므로 로그변환하여 정규분포에 가깝게 만들어야한다. 마지막에 다시 지수변환해 count로 복원해야 한다.')
     st.markdown('**2. 파생피처 추가:** datetime 피처는 여러가지 정보의 혼합체이므로 각각을 분리해 year, month, dat, hour, minute, second 피처를 생성할 수 있다.')
     st.markdown('**3. 파생피처 추가:** datetime 에 숨어 있는 또 다른 정보인 요일(weekday)피처를 추가한다.')
     st.markdown('**4. 피처 제거:** 테스트 데이터에 없는 피처는 훈련에 사용해도 큰 의미가 없다. 따라서 훈련 데이터에만 있는 casual과 registered 피처는 제거한다.')
@@ -217,4 +216,110 @@ elif mnu == '시각화':
     st.markdown('**10. 이상치 제거:** 포인트 플롯 확인 결과 weather가 4인 데이터는 이상치이다.')
     st.markdown('**11. 피처 제거:** 산점도 그래프와 히트맵 확인 결과 windspeed 피처에는 결측값이 많고 대여 수량과의 상관관계가 매우 약하다.')
 
-# elif mnu == '모델링':
+elif mnu == '모델링':
+
+    data_path = 'bike_sharing_demand/'
+    train = pd.read_csv(data_path + 'train.csv')
+    test = pd.read_csv(data_path + 'test.csv')
+    submission = pd.read_csv(data_path + 'sampleSubmission.csv')
+
+    st.markdown('#### 피처 엔지니어링')
+    st.markdown('**이상치 제거**')
+    st.write('폭우, 번개 속에서 실제로 자전거를 대여했을 수도 있지만 이 한 건의 데이터가 머신러닝 훈련에 부정적 영향을 끼치기 때문에 제거하는 것이 좋습니다.')
+    train = train[train['weather'] != 4]
+    st.code("train = train[train['weather']!=4]")
+
+    st.markdown('**데이터 합치기**')
+    st.write('훈련 데이터와 테스트 데이터에 같은 피처 엔지니어링을 적용하기 위해 두 데이터를 합친다.')
+    all_data = pd.concat([train, test], ignore_index=True)
+    st.code("all_data = pd.concat([train, test])")
+
+    st.dataframe(all_data)
+
+    st.markdown('**파생 피처 추가**')
+
+    all_data['date'] = all_data['datetime'].apply(lambda x: x.split()[0])
+    all_data['year'] = all_data['datetime'].apply(lambda x: x.split()[0].split('-')[0])
+    all_data['month'] = all_data['datetime'].apply(lambda x: x.split()[0].split('-')[1])
+    all_data['hour'] = all_data['datetime'].apply(lambda x: x.split()[1].split(':')[0])
+    all_data['weekday'] = all_data['date'].apply(lambda x: datetime.strptime(x, '%y-%m-%d').weekday())
+
+    st.code('''
+    # 날짜 피처 생성
+    all_data['date'] = all_data['datetime'].apply(lambda x: x.split()[0])
+    # 연도 피처 생성
+    all_data['year'] = all_data['datetime'].apply(lambda x: x.split()[0].split('-')[0])
+    # 월 피처 생성
+    all_data['month'] = all_data['datetime'].apply(lambda x: x.split()[0].split('-')[1])
+    # 시간 피처 생성
+    all_data['hour'] = all_data['datetime'].apply(lambda x: x.split()[1].split(':')[0])
+    # 요일 피처 생성
+    all_data['weekday'] = all_data['date'].apply(lambda x: datetime.strptime(x, '%y-%m-%d').weekday())
+    ''')
+    st.write('훈련데이터는 매달 1일부터 19일까지의 기록이고, 테스트 데이터는 매달 20일부터 월말까지의 기록이다. 그러므로 대여 수량을 예측할 때 일(day) 피처는 사용할 필요가 없다. minute와 second 피처도 모든 기록이 같은 값이므로 예측에 사용할 필요가 없다.')
+
+    st.markdown('**필요 없는 피처 제거**')
+    drop_features = ['casual', 'registered', 'datetime', 'date', 'windspeed', 'month']
+    all_data = all_data.drop(drop_features, axis=1)
+
+    st.code('''
+    drop_features = ['casual', 'registered', 'datetime', 'date', 'windspeed', 'month']
+    all_data = all_data.drop(drop_features, axis=1)
+    ''')
+
+    st.markdown('**피처 선택이란?**')
+    st.markdown('모델링 시 데이터의 특징을 잘 나타내는 주요 피처만 선택하는 작업을 **피처 선택( feature selection)** 이라고 한다.')
+    st.markdown('피처 선택은 머신러닝 모델 성능에 큰 영향을 준다. 타깃값 예측과 관련없는 피처가 많다면 오히려 성능이 떨어진다.')
+
+    st.markdown('**데이터 나누기**')
+    train = all_data[~pd.isnull(all_data['count'])]
+    test = all_data[pd.isnull(all_data['count'])]
+
+    X_train = train.drop(['count'], axis=1)
+    X_test = test.drop(['count'], axis=1)
+    Y_train = train['count']
+
+    st.code('''
+    train = all_data[~pd.isnull(all_data['count'])]
+    test = all_data[pd.isnull(all_data['count'])]
+    
+    X_train = train.drop(['count'], axis=1)
+    X_test = test.drop(['count'], axis=1)
+    Y_train = train['count']
+    ''')
+
+    st.dataframe(X_train.head())
+
+    st.markdown('#### 평가지표 계산 함수 작성')
+    st.write('머신러닝 훈련이 제대로 이루어졌는지 확인하려면 대상 능력을 평가할 수단, 즉 평가지표가 필요하다.')
+    st.write('요구한 평가지표인 RMSLE를 계산하는 함수부터 만든다.')
+    st.markdown('$\displaystyle\sqrt{{1\over{N}}\sum_{i=1}^{N}(\log{(y_{i}+1)}-\ log{(y_{i}+1)})^2}$')
+    import numpy as np
+
+    def rmsle(y_true, y_pred, convertExp=True):
+        if convertExp:
+            y_true = np.exp(y_true)
+            y_pred = np.exp((y_pred))
+
+        log_true = np.nan_to_num(np.log(y_true + 1))
+        log_pred = np.nan_to_num(np.log(y_pred + 1))
+
+        output = np.sqrt(np.mean((log_true - log_pred) ** 2))
+        return output
+
+    st.code('''
+    import numpy as np
+
+    def rmsle(y_true, y_pred, convertExp=True):
+    
+        if convertExp:
+            y_true = np.exp(y_true)
+            y_pred = np.exp((y_pred))
+
+        log_true = np.nan_to_num(np.log(y_true + 1))
+        log_pred = np.nan_to_num(np.log(y_pred + 1))
+        
+        output = np.sqrt(np.mean((log_true - log_pred) ** 2))
+        return output
+    ''')
+
