@@ -105,7 +105,7 @@ elif mnu == 'EDA':
     st.dataframe(submission.head())
 
     st.markdown('- train.info()')
-    buffer = io.StringIO
+    buffer = io.StringIO()
     train.info(buf=buffer)
     st.text(buffer.getvalue())
 
@@ -113,3 +113,108 @@ elif mnu == 'EDA':
     st.markdown('- test.info()')
     test.info(buf=buffer)
     st.text(buffer.getvalue())
+
+elif mnu == '시각화':
+
+    import seaborn as sns
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    st.set_option('deprecation.showPyplotGlobalUse', False)
+
+    feature_engineering()
+
+    st.subheader('시각화')
+
+    mpl.rc('font', size=12)
+    st.markdown('- count의 분포도')
+    fig, axes = plt.subplots(nrows=1, ncols=2)
+    sns.histplot(train['count'], ax=axes[0])
+    sns.histplot(np.log(train['count']), ax=axes[1])
+    fig.set_size_inches(10, 5)
+    st.pyplot()
+    st.write('원본 count값의 분포가 왼쪽으로 많이 편향되어 있어서 로그변환을 통해 정규분포에 가깝게 만듦.')
+
+    st.markdown('- 년, 월, 일, 시간, 분, 초에 따른 대여량 평균치')
+    mpl.rc('font', size=15)
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(nrows=2, ncols=3)
+    fig.set_size_inches(18, 13)
+
+    sns.barplot(data=train, x="year", y="count", ax=ax1)
+    sns.barplot(data=train, x="month", y="count", ax=ax2)
+    sns.barplot(data=train, x="day", y="count", ax=ax3)
+    sns.barplot(data=train, x="hour", y="count", ax=ax4)
+    sns.barplot(data=train, x="minute", y="count", ax=ax5)
+    sns.barplot(data=train, x="second", y="count", ax=ax6)
+
+    ax1.set(title="Rental amounts by year")
+    ax2.set(title="Rental amounts by month")
+    ax3.set(title="Rental amounts by day")
+    ax4.set(title="Rental amounts by hour")
+
+    st.pyplot()
+
+    st.markdown('- 시즌별, 시간별, 근무일/휴무일에 따른 대여량 평균치')
+    mpl.rc('font', size=15)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
+    fig.set_size_inches(18, 13)
+
+    sns.boxplot(data=train, x='season', y='count', ax=ax1)
+    sns.boxplot(data=train, x='weather', y='count', ax=ax2)
+    sns.boxplot(data=train, x='holiday', y='count', ax=ax3)
+    sns.boxplot(data=train, x='workingday', y='count', ax=ax4)
+
+    ax1.set(title='BoxPlot on Count Across Season')
+    ax2.set(title='BoxPlot on Count Across Weather')
+    ax3.set(title='BoxPlot on Count Across Holiday')
+    ax4.set(title='BoxPlot on Count Across Working Day')
+
+    st.pyplot()
+
+    st.markdown('- 근무일, 공휴일, 요일, 계절, 날씨에 따른 시간대별 평균 대여 수량')
+    mpl.rc('font', size=8)
+    fig, axes = plt.subplots(nrows=5)
+    plt.tight_layout()
+    fig.set_size_inches(7, 13)
+
+    sns.pointplot(x='hour', y='count', data=train, hue='workingday', ax=axes[0])
+    sns.pointplot(x='hour', y='count', data=train, hue='holiday', ax=axes[1])
+    sns.pointplot(x='hour', y='count', data=train, hue='weekday', ax=axes[2])
+    sns.pointplot(x='hour', y='count', data=train, hue='season', ax=axes[3])
+    sns.pointplot(x='hour', y='count', data=train, hue='weather', ax=axes[4])
+    st.pyplot()
+
+    st.markdown('- 온도, 체감 온도, 풍속, 습도별 대여 수량 산점도 그래프')
+    mpl.rc('font', size=12)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
+    plt.tight_layout()
+    fig.set_size_inches(7, 6)
+    sns.regplot(x="temp", y="count", data=train, ax=ax1, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
+    sns.regplot(x="atemp", y="count", data=train, ax=ax2, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
+    sns.regplot(x="windspeed", y="count", data=train, ax=ax3, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
+    sns.regplot(x="humidity", y="count", data=train, ax=ax4, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
+    st.pyplot()
+
+    st.markdown('- 피처 간 상관관계 매트릭스')
+    corrMat = train[['temp', 'atemp', 'humidity', 'windspeed', 'count']].corr()
+    fig, ax = plt.subplots()
+    fig.set_size_inches(10, 10)
+    sns.heatmap(corrMat, annot=True)
+    ax.set(title='Heatmap of Numerical Data')
+    st.pyplot()
+
+    st.markdown('#### 분석 정리 및 모델링 전략')
+    st.markdown('**1. 타깃값 변환:** 분포도 확인 결과 타깃값인 count가 0근처로 치우쳐 있으므로 로그변환하여 정규분포에 가깝게 만들어야한다.'
+                '마지막에 다시 지수변환해 count로 복원해야 한다.')
+    st.markdown('**2. 파생피처 추가:** datetime 피처는 여러가지 정보의 혼합체이므로 각각을 분리해 year, month, dat, hour, minute, second 피처를 생성할 수 있다.')
+    st.markdown('**3. 파생피처 추가:** datetime 에 숨어 있는 또 다른 정보인 요일(weekday)피처를 추가한다.')
+    st.markdown('**4. 피처 제거:** 테스트 데이터에 없는 피처는 훈련에 사용해도 큰 의미가 없다. 따라서 훈련 데이터에만 있는 casual과 registered 피처는 제거한다.')
+    st.markdown('**5. 피처 제거:** datetime 피처는 인덱스 역할만 하므로 타깃값 예측에 아무런 도움이 되지 않는다.')
+    st.markdown('**6. 피처 제거:** date 피처가 제공하는 정보도 year, month, day 피처에 담겨있다.')
+    st.markdown('**7. 피처 제거:** month는 season 피처의 세부 분류로 볼 수 있다. 데이터가 지나치게 세분화되어 있으면 분류별 데이터수가 적어서 학습에 오히려 방해가 되기도 한다.')
+    st.markdown('**8. 피처 제거:** 막대 그래프 확인 결과 day는 분별력이 없다.')
+    st.markdown('**9. 피처 제거:** 막대 그래프 확인 결과 minute와 second에는 아무런 정보가 담겨 있지 않다.')
+    st.markdown('**10. 이상치 제거:** 포인트 플롯 확인 결과 weather가 4인 데이터는 이상치이다.')
+    st.markdown('**11. 피처 제거:** 산점도 그래프와 히트맵 확인 결과 windspeed 피처에는 결측값이 많고 대여 수량과의 상관관계가 매우 약하다.')
+
+# elif mnu == '모델링':
