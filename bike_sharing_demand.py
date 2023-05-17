@@ -242,7 +242,7 @@ elif mnu == '모델링':
     all_data['year'] = all_data['datetime'].apply(lambda x: x.split()[0].split('-')[0])
     all_data['month'] = all_data['datetime'].apply(lambda x: x.split()[0].split('-')[1])
     all_data['hour'] = all_data['datetime'].apply(lambda x: x.split()[1].split(':')[0])
-    all_data['weekday'] = all_data['date'].apply(lambda x: datetime.strptime(x, '%y-%m-%d').weekday())
+    all_data['weekday'] = all_data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d').weekday())
 
     st.code('''
     # 날짜 피처 생성
@@ -365,7 +365,7 @@ elif mnu == '모델링':
     rmsle_value = rmsle(log_y, preds, True)
     ''')
 
-    st.write(f'선형 회귀의 RSMLE 값: {rmsle_value:.4f}')
+    st.write(f'선형 회귀의 RMSLE 값: {rmsle_value:.4f}')
 
     st.write('')
     st.markdown('#### 예측 및 결과 제출')
