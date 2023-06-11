@@ -18,27 +18,24 @@ mnu = st.sidebar.selectbox('메뉴', options=['설명', 'EDA', '시각화', '모
 if mnu == '설명':
     st.subheader('데이터 분석 목표')
     st.write('''
-    지난 3개월 동안 Apple, Microsoft, Netflix 및 Google의 과거 주가 데이터가 
+    3개월 동안 Apple, Microsoft, Netflix 및 Google의 과거 주가 데이터가 
     주어졌을 때의 목표는 다양한 데이터 과학 기술을 사용하여 주식 시장에서 
     위 회사들의 성과를 분석하고 비교하는 것입니다.
     
     구체적으로 주가 움직임의 추세와 패턴을 파악하고 기업별 이동 평균과 변동성을 
     계산하며 상관관계 분석을 통해 서로 다른 주가 간의 관계를 살펴보는 것이 목표입니다.
-    
-    제공되는 데이터셋 대신 yfinance API를 이용하여 
-    최신 데이터를 다운로드할 수도 있습니다.
     ''')
     st.image('Stock.jpg')
 
     st.markdown('#### 데이터 필드')
-    st.markdown('**Ticker** - 주식회사명')
+    st.markdown('**Ticker** - 종목 코드')
     st.markdown('**Date** - 날짜')
-    st.markdown('**Open** - 오픈')
-    st.markdown('**High** - 고점')
-    st.markdown('**Low** - 저점')
-    st.markdown('**Close** - 마감')
-    st.markdown('**Adj Close** - 광고 마감')
-    st.markdown('**Volume** - 부피')
+    st.markdown('**Open** - 시가')
+    st.markdown('**High** - 고가')
+    st.markdown('**Low** - 저가')
+    st.markdown('**Close** - 종가')
+    st.markdown('**Adj Close** - 수정 종가')
+    st.markdown('**Volume** - 거래량')
 
 elif mnu == 'EDA':
     st.subheader('EDA')
@@ -46,8 +43,11 @@ elif mnu == 'EDA':
     st.markdown('- (주식 데이터 shape)')
     st.text(f'{df.shape}')
 
+    st.markdown('- Ticker')
+    st.text(f"{df['Ticker'].unique()}")
+
     st.markdown('- 주식 데이터')
-    st.dataframe(df.head())
+    st.dataframe(df.head(10))
 
     st.markdown('- Data Dtypes')
     st.text(f'{df.dtypes}')
@@ -55,7 +55,7 @@ elif mnu == 'EDA':
     st.markdown('- Nunique')
     st.dataframe(df.nunique())
 
-    st.markdown('- df.info()')
+    st.markdown('- Df.info')
     buffer = io.StringIO()
     df.info(buf=buffer)
     st.text(buffer.getvalue())
@@ -67,109 +67,110 @@ elif mnu == '시각화':
     import seaborn as sns
     import matplotlib as mpl
     import matplotlib.pyplot as plt
+    import plotly.express as px
 
     st.set_option('deprecation.showPyplotGlobalUse', False)
 
-    feature_engineering()
+    # feature_engineering()
 
     st.subheader('시각화')
 
-    mpl.rc('font', size=12)
-    st.markdown('- count의 분포도')
-    fig, axes = plt.subplots(nrows=1, ncols=2)
-    sns.histplot(train['count'], ax=axes[0])
-    sns.histplot(np.log(train['count']), ax=axes[1])
-    fig.set_size_inches(10, 5)
-    st.pyplot()
-    st.write('원본 count값의 분포가 왼쪽으로 많이 편향되어 있어서 로그변환을 통해 정규분포에 가깝게 만듦.')
+    #############################################################
+    fig = px.line(df, x='Date',
+                  y='Close',
+                  color='Ticker',
+                  title="3개월간 주식시장 실적")
+    st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown('- 년, 월, 일, 시간, 분, 초에 따른 대여량 평균치')
-    mpl.rc('font', size=15)
-    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(nrows=2, ncols=3)
-    fig.set_size_inches(18, 13)
+    ########################################################
+    fig = px.area(df, x='Date', y='Close', color='Ticker',
+                  facet_col='Ticker',
+                  labels={'Date': 'Date', 'Close': 'Closing Price', 'Ticker': 'Company'},
+                  title='Apple, Microsoft, Netflix 및 Google의 주가')
+    st.plotly_chart(fig, use_container_width=True)
 
-    sns.barplot(data=train, x="year", y="count", ax=ax1)
-    sns.barplot(data=train, x="month", y="count", ax=ax2)
-    sns.barplot(data=train, x="day", y="count", ax=ax3)
-    sns.barplot(data=train, x="hour", y="count", ax=ax4)
-    sns.barplot(data=train, x="minute", y="count", ax=ax5)
-    sns.barplot(data=train, x="second", y="count", ax=ax6)
+    ############################################################
+    df['MA10'] = df.groupby('Ticker')['Close'].rolling(window=10).mean().reset_index(0, drop=True)
+    df['MA20'] = df.groupby('Ticker')['Close'].rolling(window=20).mean().reset_index(0, drop=True)
 
-    ax1.set(title="Rental amounts by year")
-    ax2.set(title="Rental amounts by month")
-    ax3.set(title="Rental amounts by day")
-    ax4.set(title="Rental amounts by hour")
+    for ticker, group in df.groupby('Ticker'):
+        fig = px.line(group, x='Date', y=['Close', 'MA10', 'MA20'],
+                      title=f"{ticker} 평균 이동량")
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.pyplot()
+    #############################################
+    df['Volatility'] = df.groupby('Ticker')['Close'].pct_change().rolling(window=10).std().reset_index(0, drop=True)
+    fig = px.line(df, x='Date', y='Volatility',
+                  color='Ticker',
+                  title='Apple, Microsoft, Netflix 및 Google의 변동성')
+    st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown('- 시즌별, 시간별, 근무일/휴무일에 따른 대여량 평균치')
-    mpl.rc('font', size=15)
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
-    fig.set_size_inches(18, 13)
+    ###################################################
+    X_line = st.radio(
+        "x축 종목 코드",
+        ('AAPL', 'MSFT', 'NFLX', 'GOOG'),horizontal = True)
 
-    sns.boxplot(data=train, x='season', y='count', ax=ax1)
-    sns.boxplot(data=train, x='weather', y='count', ax=ax2)
-    sns.boxplot(data=train, x='holiday', y='count', ax=ax3)
-    sns.boxplot(data=train, x='workingday', y='count', ax=ax4)
+    if X_line == 'AAPL':
+        x1 = 'AAPL'
+        Y_line = st.radio(
+            "y축 종목 코드",
+            ('MSFT', 'NFLX', 'GOOG'), horizontal=True)
+    elif X_line == 'MSFT':
+        x1 = 'MSFT'
+        Y_line = st.radio(
+            "y축 종목 코드",
+            ('AAPL', 'NFLX', 'GOOG'), horizontal=True)
+    elif X_line == 'NFLX':
+        x1 = 'NFLX'
+        Y_line = st.radio(
+            "y축 종목 코드",
+            ('AAPL', 'MSFT', 'GOOG'), horizontal=True)
+    else:
+        x1 = 'GOOG'
+        Y_line = st.radio(
+            "y축 종목 코드",
+            ('AAPL', 'MSFT', 'NFLX'), horizontal=True)
 
-    ax1.set(title='BoxPlot on Count Across Season')
-    ax2.set(title='BoxPlot on Count Across Weather')
-    ax3.set(title='BoxPlot on Count Across Holiday')
-    ax4.set(title='BoxPlot on Count Across Working Day')
+    if Y_line == 'AAPL':
+        y1 = 'AAPL'
+    elif Y_line == 'MSFT':
+        y1 = 'MSFT'
+    elif Y_line == 'NFLX':
+        y1 = 'NFLX'
+    else:
+        y1 = 'GOOG'
 
-    st.pyplot()
+    x = df.loc[df['Ticker'] == x1, ['Date', 'Close']].rename(columns={'Close': x1})
+    y = df.loc[df['Ticker'] == y1, ['Date', 'Close']].rename(columns={'Close': y1})
+    df_corr = pd.merge(x, y, on='Date')
 
-    st.markdown('- 근무일, 공휴일, 요일, 계절, 날씨에 따른 시간대별 평균 대여 수량')
-    mpl.rc('font', size=8)
-    fig, axes = plt.subplots(nrows=5)
-    plt.tight_layout()
-    fig.set_size_inches(7, 13)
+    fig = px.scatter(df_corr, x=x1, y=y1,
+                     trendline='ols',
+                     title=x1+'와(과) '+y1+' 사이의 상관관계')
+    st.plotly_chart(fig, use_container_width=True)
 
-    sns.pointplot(x='hour', y='count', data=train, hue='workingday', ax=axes[0])
-    sns.pointplot(x='hour', y='count', data=train, hue='holiday', ax=axes[1])
-    sns.pointplot(x='hour', y='count', data=train, hue='weekday', ax=axes[2])
-    sns.pointplot(x='hour', y='count', data=train, hue='season', ax=axes[3])
-    sns.pointplot(x='hour', y='count', data=train, hue='weather', ax=axes[4])
-    st.pyplot()
-
-    st.markdown('- 온도, 체감 온도, 풍속, 습도별 대여 수량 산점도 그래프')
-    mpl.rc('font', size=12)
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
-    plt.tight_layout()
-    fig.set_size_inches(7, 6)
-    sns.regplot(x="temp", y="count", data=train, ax=ax1, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
-    sns.regplot(x="atemp", y="count", data=train, ax=ax2, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
-    sns.regplot(x="windspeed", y="count", data=train, ax=ax3, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
-    sns.regplot(x="humidity", y="count", data=train, ax=ax4, scatter_kws={'alpha': 0.2}, line_kws={'color': 'blue'})
-    st.pyplot()
-
-    st.markdown('- 피처 간 상관관계 매트릭스')
-    # corrMat = train[['temp', 'atemp', 'humidity', 'windspeed', 'count']].corr()
-    # fig, ax = plt.subplots()
-    # fig.set_size_inches(10, 10)
-    # sns.heatmap(corrMat, annot=True)
-    # ax.set(title='Heatmap of Numerical Data')
-    # st.pyplot()
+    ####################################################################
+    st.markdown('상관관계 매트릭스 히트맵')
     correlation_matrix = df.corr()
     plt.figure(figsize=(15, 10))
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=0.5, fmt='.2f')
     plt.title("Correlation Matrix Heatmap")
-    plt.show()
+    st.pyplot()
 
-    st.markdown('#### 분석 정리 및 모델링 전략')
-    st.markdown(
-        '**1. 타깃값 변환:** 분포도 확인 결과 타깃값인 count가 0근처로 치우쳐 있으므로 로그변환하여 정규분포에 가깝게 만들어야한다. 마지막에 다시 지수변환해 count로 복원해야 한다.')
-    st.markdown(
-        '**2. 파생피처 추가:** datetime 피처는 여러가지 정보의 혼합체이므로 각각을 분리해 year, month, dat, hour, minute, second 피처를 생성할 수 있다.')
-    st.markdown('**3. 파생피처 추가:** datetime 에 숨어 있는 또 다른 정보인 요일(weekday)피처를 추가한다.')
-    st.markdown('**4. 피처 제거:** 테스트 데이터에 없는 피처는 훈련에 사용해도 큰 의미가 없다. 따라서 훈련 데이터에만 있는 casual과 registered 피처는 제거한다.')
-    st.markdown('**5. 피처 제거:** datetime 피처는 인덱스 역할만 하므로 타깃값 예측에 아무런 도움이 되지 않는다.')
-    st.markdown('**6. 피처 제거:** date 피처가 제공하는 정보도 year, month, day 피처에 담겨있다.')
-    st.markdown('**7. 피처 제거:** month는 season 피처의 세부 분류로 볼 수 있다. 데이터가 지나치게 세분화되어 있으면 분류별 데이터수가 적어서 학습에 오히려 방해가 되기도 한다.')
-    st.markdown('**8. 피처 제거:** 막대 그래프 확인 결과 day는 분별력이 없다.')
-    st.markdown('**9. 피처 제거:** 막대 그래프 확인 결과 minute와 second에는 아무런 정보가 담겨 있지 않다.')
-    st.markdown('**10. 이상치 제거:** 포인트 플롯 확인 결과 weather가 4인 데이터는 이상치이다.')
-    st.markdown('**11. 피처 제거:** 산점도 그래프와 히트맵 확인 결과 windspeed 피처에는 결측값이 많고 대여 수량과의 상관관계가 매우 약하다.')
+    # st.markdown('#### 분석 정리 및 모델링 전략')
+    # st.markdown(
+    #     '**1. 타깃값 변환:** 분포도 확인 결과 타깃값인 count가 0근처로 치우쳐 있으므로 로그변환하여 정규분포에 가깝게 만들어야한다. 마지막에 다시 지수변환해 count로 복원해야 한다.')
+    # st.markdown(
+    #     '**2. 파생피처 추가:** datetime 피처는 여러가지 정보의 혼합체이므로 각각을 분리해 year, month, dat, hour, minute, second 피처를 생성할 수 있다.')
+    # st.markdown('**3. 파생피처 추가:** datetime 에 숨어 있는 또 다른 정보인 요일(weekday)피처를 추가한다.')
+    # st.markdown('**4. 피처 제거:** 테스트 데이터에 없는 피처는 훈련에 사용해도 큰 의미가 없다. 따라서 훈련 데이터에만 있는 casual과 registered 피처는 제거한다.')
+    # st.markdown('**5. 피처 제거:** datetime 피처는 인덱스 역할만 하므로 타깃값 예측에 아무런 도움이 되지 않는다.')
+    # st.markdown('**6. 피처 제거:** date 피처가 제공하는 정보도 year, month, day 피처에 담겨있다.')
+    # st.markdown('**7. 피처 제거:** month는 season 피처의 세부 분류로 볼 수 있다. 데이터가 지나치게 세분화되어 있으면 분류별 데이터수가 적어서 학습에 오히려 방해가 되기도 한다.')
+    # st.markdown('**8. 피처 제거:** 막대 그래프 확인 결과 day는 분별력이 없다.')
+    # st.markdown('**9. 피처 제거:** 막대 그래프 확인 결과 minute와 second에는 아무런 정보가 담겨 있지 않다.')
+    # st.markdown('**10. 이상치 제거:** 포인트 플롯 확인 결과 weather가 4인 데이터는 이상치이다.')
+    # st.markdown('**11. 피처 제거:** 산점도 그래프와 히트맵 확인 결과 windspeed 피처에는 결측값이 많고 대여 수량과의 상관관계가 매우 약하다.')
 
 elif mnu == '모델링':
 
